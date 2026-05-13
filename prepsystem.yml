@@ -3,6 +3,12 @@
   hosts: masters, workers
   become: yes
   tasks:
+    - name: Set Google DNS
+      lineinfile:
+        path: /etc/resolv.conf
+        regexp: '^nameserver'
+        line: 'nameserver 8.8.8.8'
+
     - name: Disable SWAP (K8s requirement)
       shell: |
         swapoff -a
@@ -36,6 +42,7 @@
         name: containerd
         state: present
         update_cache: yes
+        force_apt_get: yes
 
     - name: Configure Containerd
       shell: |
