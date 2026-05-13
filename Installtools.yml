@@ -28,7 +28,7 @@
       apt:
         name: [kubelet, kubeadm, kubectl]
         state: present
-        update_cache: yes
+	update_cache: yes
 	force_apt_get: yes  # Используем классический apt-get, он иногда стабильнее
 	register: apt_result
 	until: apt_result is success
