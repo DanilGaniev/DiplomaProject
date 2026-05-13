@@ -30,10 +30,10 @@
         state: present
         update_cache: yes
         force_apt_get: yes  # Используем классический apt-get, он иногда стабильнее
-        register: apt_result
-        until: apt_result is success
-        retries: 10          # Дадим ему 10 попыток
-        delay: 15            # Между попытками ждем 15 секунд
+      register: apt_result
+      until: apt_result is success
+      retries: 10          # Дадим ему 10 попыток
+      delay: 15            # Между попытками ждем 15 секунд
 
     - name: Hold K8s tools (prevent auto-upgrade)
       shell: apt-mark hold kubelet kubeadm kubectl
