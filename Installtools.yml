@@ -1,39 +1,36 @@
 ---
-- name: Install Kubernetes components
+- name: Verify and configure Kubernetes components
   hosts: masters, workers
   become: yes
   tasks:
-    - name: Install dependencies
-      apt:
-        name: [apt-transport-https, ca-certificates, curl, gpg]
-        state: present
-
-    - name: Create directory for apt key
+    - name: Ensure directory for apt key exists
       file:
         path: /etc/apt/keyrings
         state: directory
         mode: '0755'
 
-    - name: Add Kubernetes GPG key
-      shell: curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.30/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
-      args:
-        creates: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+    - name: Ensure stable Kubernetes GPG key is present
+      get_url:
+        url: https://mirrors.aliyun.com/kubernetes-new/core/stable/v1.30/deb/Release.key
+        dest: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+        mode: '0644'
 
-    - name: Add Kubernetes repository
+    - name: Configure Kubernetes repository (pointing to stable Alibaba mirror)
       copy:
         dest: /etc/apt/sources.list.d/kubernetes.list
-        content: 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.30/deb/ /'
+        content: 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://mirrors.aliyun.com/kubernetes-new/core/stable/v1.30/deb/ /'
 
-    - name: Install K8s tools
+    - name: Verify K8s tools are installed (should be OK instantly due to Packer)
       apt:
         name: [kubelet, kubeadm, kubectl]
         state: present
         update_cache: yes
-        force_apt_get: yes  # Используем классический apt-get, он иногда стабильнее
-      register: apt_result
-      until: apt_result is success
-      retries: 10          # Дадим ему 10 попыток
-      delay: 15            # Между попытками ждем 15 секунд
 
-    - name: Hold K8s tools (prevent auto-upgrade)
-      shell: apt-mark hold kubelet kubeadm kubectl
+    - name: Lock K8s tools versions (native apt-mark hold)
+      dpkg_selections:
+        name: "{{ item }}"
+        selection: hold
+      loop:
+        - kubelet
+        - kubeadm
+        - kubectl
