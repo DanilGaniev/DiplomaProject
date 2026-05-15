@@ -6,50 +6,59 @@
     - name: Set Google DNS
       lineinfile:
         path: /etc/resolv.conf
-        regexp: '^nameserver'
+        regexp: '^nameserver.*'
         line: 'nameserver 8.8.8.8'
 
-    - name: Disable SWAP (K8s requirement)
-      shell: |
-        swapoff -a
-        sed -i '/ swap / s/^\(.*\)$/#\1/g' /etc/fstab
+    - name: Disable SWAP immediately
+      command: swapoff -a
+      changed_when: false  # Команда выполняется всегда, но статус changed нам тут не нужен
 
-    - name: Load kernel modules for Containerd
-      copy:
-        dest: /etc/modules-load.d/containerd.conf
-        content: |
-          overlay
-          br_netfilter
+    - name: Remove SWAP from /etc/fstab permanently
+      replace:
+        path: /etc/fstab
+        regexp: '^([^#].*?\sswap\s+.*)$'
+        replace: '# \1'
 
-    - name: Apply kernel modules
-      shell: |
-        modprobe overlay
-        modprobe br_netfilter
+    # Модули ядра и sysctl уже созданы Паккером, но эти таски проверяют их статус на лету
+    - name: Ensure kernel modules are loaded
+      modprobe:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - overlay
+        - br_netfilter
 
-    - name: Set system parameters for networking
-      copy:
-        dest: /etc/sysctl.d/99-kubernetes-cri.conf
-        content: |
-          net.bridge.bridge-nf-call-iptables  = 1
-          net.ipv4.ip_forward                 = 1
-          net.bridge.bridge-nf-call-ip6tables = 1
+    - name: Ensure sysctl parameters are applied
+      sysctl:
+        name: "{{ item.key }}"
+        value: "{{ item.value }}"
+        sysctl_file: /etc/sysctl.d/99-kubernetes-cri.conf
+        state: present
+        reload: yes
+      loop:
+        - { key: 'net.bridge.bridge-nf-call-iptables', value: '1' }
+        - { key: 'net.ipv4.ip_forward', value: '1' }
+        - { key: 'net.bridge.bridge-nf-call-ip6tables', value: '1' }
 
-    - name: Apply sysctl params
-      command: sysctl --system
-
-    - name: Install Containerd
+    # Containerd уже установлен Паккером, таска просто проверит его наличие
+    - name: Ensure Containerd is installed
       apt:
         name: containerd
         state: present
-        update_cache: yes
-        force_apt_get: yes
 
-    - name: Configure Containerd
-      shell: |
-        mkdir -p /etc/containerd
-        containerd config default > /etc/containerd/config.toml
-        sed -i 's/SystemdCgroup = false/SystemdCgroup = true/g' /etc/containerd/config.toml
+    # Вместо грубой перезаписи файла через shell, точечно проверяем нужный параметр
+    - name: Verify SystemdCgroup is set to true in Containerd config
+      lineinfile:
+        path: /etc/containerd/config.toml
+        regexp: 'SystemdCgroup ='
+        line: '            SystemdCgroup = true'
       notify: Restart Containerd
+
+    - name: Ensure Containerd is enabled and running
+      service:
+        name: containerd
+        state: started
+        enabled: yes
 
   handlers:
     - name: Restart Containerd
