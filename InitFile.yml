@@ -4,7 +4,6 @@
   become: yes
   tasks:
     - name: Initialize the cluster using kubeadm
-      # Поменяли CIDR на безопасный 10.244.0.0/16
       command: kubeadm init --pod-network-cidr=10.244.0.0/16 --apiserver-advertise-address={{ ansible_host }}
       register: kubeadm_init
       args:
@@ -58,7 +57,20 @@
   hosts: workers
   become: yes
   tasks:
-    - name: Join the cluster
+    - name: Wait for containerd to be active on workers
+      systemd:
+        name: containerd
+        state: started
+      register: containerd_status
+      until: containerd_status is success
+      retries: 10
+      delay: 5
+
+    - name: Join the cluster with retry logic
       command: "{{ hostvars[groups['masters'][0]]['join_command'] }}"
       args:
         creates: /etc/kubernetes/kubelet.conf
+      register: join_result
+      until: join_result is success
+      retries: 5
+      delay: 15
