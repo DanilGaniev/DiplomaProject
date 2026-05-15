@@ -3,12 +3,6 @@
   hosts: masters, workers
   become: yes
   tasks:
-    - name: Set Google DNS
-      lineinfile:
-        path: /etc/resolv.conf
-        regexp: '^nameserver.*'
-        line: 'nameserver 8.8.8.8'
-
     - name: Disable SWAP immediately
       command: swapoff -a
       changed_when: false  # Команда выполняется всегда, но статус changed нам тут не нужен
@@ -40,28 +34,4 @@
         - { key: 'net.ipv4.ip_forward', value: '1' }
         - { key: 'net.bridge.bridge-nf-call-ip6tables', value: '1' }
 
-    # Containerd уже установлен Паккером, таска просто проверит его наличие
-    - name: Ensure Containerd is installed
-      apt:
-        name: containerd
-        state: present
-
-    # Вместо грубой перезаписи файла через shell, точечно проверяем нужный параметр
-    - name: Verify SystemdCgroup is set to true in Containerd config
-      lineinfile:
-        path: /etc/containerd/config.toml
-        regexp: 'SystemdCgroup ='
-        line: '            SystemdCgroup = true'
-      notify: Restart Containerd
-
-    - name: Ensure Containerd is enabled and running
-      service:
-        name: containerd
-        state: started
-        enabled: yes
-
-  handlers:
-    - name: Restart Containerd
-      service:
-        name: containerd
-        state: restarted
+    # Containerd
