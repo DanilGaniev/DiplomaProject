@@ -3,6 +3,14 @@
   hosts: masters, workers
   become: yes
   tasks:
+    - name: Clean up any old or broken Kubernetes repository lists
+      file:
+        path: "/etc/apt/sources.list.d/{{ item }}"
+        state: absent
+      loop:
+        - kubernetes.list
+        - kubernetes.list.bak
+
     - name: Ensure directory for apt key exists
       file:
         path: /etc/apt/keyrings
@@ -20,7 +28,7 @@
         dest: /etc/apt/sources.list.d/kubernetes.list
         content: 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://mirrors.aliyun.com/kubernetes-new/core/stable/v1.30/deb/ /'
 
-    - name: Verify K8s tools are installed (should be OK instantly due to Packer)
+    - name: Force apt cache update and verify K8s tools are installed
       apt:
         name: [kubelet, kubeadm, kubectl]
         state: present
