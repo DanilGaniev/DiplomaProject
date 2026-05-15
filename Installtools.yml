@@ -3,10 +3,13 @@
   hosts: masters, workers
   become: yes
   tasks:
-    - name: Clean up old Kubernetes repo files
+    - name: Clean up old Kubernetes repo files and keys
       file:
-        path: /etc/apt/sources.list.d/kubernetes.list
+        path: "{{ item }}"
         state: absent
+      loop:
+        - /etc/apt/sources.list.d/kubernetes.list
+        - /etc/apt/keyrings/kubernetes-apt-keyring.gpg
 
     - name: Ensure directory for apt key exists
       file:
@@ -14,13 +17,21 @@
         state: directory
         mode: '0755'
 
-    - name: Delete old keyring to avoid conflicts
-      file:
-        path: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
-        state: absent
+    - name: Download Kubernetes GPG key to temporary file
+      get_url:
+        url: https://mirrors.aliyun.com/kubernetes-new/core/stable/v1.30/deb/Release.key
+        dest: /tmp/kubernetes-release.key
+        mode: '0644'
 
-    - name: Import Kubernetes GPG key directly from Ubuntu keyserver by ID
-      shell: gpg --no-default-keyring --keyring /etc/apt/keyrings/kubernetes-apt-keyring.gpg --keyserver keyserver.ubuntu.com --recv-keys 234654DA9A296436
+    - name: Dearmor Kubernetes GPG key properly (fixes apt warnings)
+      shell: gpg --dearmor < /tmp/kubernetes-release.key > /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+      args:
+        creates: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+
+    - name: Clean up temporary key file
+      file:
+        path: /tmp/kubernetes-release.key
+        state: absent
 
     - name: Configure Kubernetes repository (Alibaba mirror)
       copy:
@@ -34,7 +45,7 @@
         update_cache: yes
       register: apt_result
       until: apt_result is success
-      retries: 3
+      retries: 5
       delay: 10
 
     - name: Lock K8s tools versions (native apt-mark hold)
