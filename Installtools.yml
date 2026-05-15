@@ -17,11 +17,10 @@
         state: directory
         mode: '0755'
 
-    - name: Ensure stable Kubernetes GPG key is present
-      get_url:
-        url: https://mirrors.aliyun.com/kubernetes-new/core/stable/v1.30/deb/Release.key
-        dest: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
-        mode: '0644'
+    - name: Add Kubernetes GPG key (properly dearmored)
+      shell: curl -fsSL https://mirrors.aliyun.com/kubernetes-new/core/stable/v1.30/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+      args:
+        creates: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
 
     - name: Configure Kubernetes repository (pointing to stable Alibaba mirror)
       copy:
@@ -33,6 +32,10 @@
         name: [kubelet, kubeadm, kubectl]
         state: present
         update_cache: yes
+      register: apt_result
+      until: apt_result is success
+      retries: 5           # Защита от блокировки apt процессом cloud-init
+      delay: 10            # Ждем 10 секунд между попытками
 
     - name: Lock K8s tools versions (native apt-mark hold)
       dpkg_selections:
