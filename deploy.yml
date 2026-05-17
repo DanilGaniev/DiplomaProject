@@ -48,3 +48,13 @@
         helm upgrade --install kube-prom-stack prometheus-community/kube-prometheus-stack
         --namespace monitoring
         -f /home/dandi/Monitoring.yaml
+
+    - name: Get Grafana admin password
+      ansible.builtin.shell: kubectl get secret --namespace monitoring kube-prom-stack-grafana -o jsonpath="{.data.admin-password}" | base64 --decode
+      register: grafana_password_raw
+
+    - name: Save Grafana password to file on ansible-master
+      ansible.builtin.copy:
+        content: "{{ grafana_password_raw.stdout }}"
+        dest: /home/dandi/grafana_password.txt
+        mode: '0600'
