@@ -13,12 +13,12 @@ spec:
     metadata:
       labels:
         app: nginx
-  spec:
-    containers:
-    - name: nginx
-      image: nginx:stable
-      ports:
-      - containerPort: 80
+    spec: # Теперь этот блок смещен вправо и находится внутри template
+      containers:
+      - name: nginx
+        image: nginx:stable
+        ports:
+        - containerPort: 80
 ---
 apiVersion: v1
 kind: Service
