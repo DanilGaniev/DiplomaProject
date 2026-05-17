@@ -1,0 +1,50 @@
+---
+- name: Deploy Nginx and Monitoring Stack (Prometheus & Grafana)
+  hosts: masters
+  become: false # kubectl работает от пользователя dandi
+  tasks:
+
+    - name: Copy Nginx manifest to k8s-master
+      ansible.builtin.copy:
+        src: /home/dandi/DiplomaProject/Nginx.yaml
+        dest: /home/dandi/Nginx.yaml
+        mode: '0644'
+
+    - name: Apply Nginx manifest
+      ansible.builtin.command: kubectl apply -f /home/dandi/Nginx.yaml
+
+    - name: Copy Monitoring values to k8s-master
+      ansible.builtin.copy:
+        src: /home/dandi/DiplomaProject/Monitoring.yaml
+        dest: /home/dandi/Monitoring.yaml
+        mode: '0644'
+
+    - name: Download Helm installer script
+      ansible.builtin.get_url:
+        url: https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+        dest: /tmp/get_helm.sh
+        mode: '0700'
+
+    - name: Install Helm to system
+      ansible.builtin.command: /tmp/get_helm.sh
+      become: true # Для записи в /usr/local/bin нужны права root
+
+    - name: Remove Helm installer script
+      ansible.builtin.file:
+        path: /tmp/get_helm.sh
+        state: absent
+
+    - name: Add Prometheus Helm repository
+      ansible.builtin.command: helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+
+    - name: Update Helm repositories
+      ansible.builtin.command: helm repo update
+
+    - name: Create monitoring namespace (idempotent)
+      ansible.builtin.shell: kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -
+
+    - name: Deploy kube-prometheus-stack via Helm
+      ansible.builtin.command: >
+        helm upgrade --install kube-prom-stack prometheus-community/kube-prometheus-stack
+        --namespace monitoring
+        -f /home/dandi/Monitoring.yaml
