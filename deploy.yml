@@ -28,15 +28,6 @@
     - name: Copy Monitoring values to k8s-master
       ansible.builtin.copy:
         src: /home/dandi/DiplomaProject/Monitoring.yaml
-
-    - name: Copy CephCluster manifest to k8s-master
-      ansible.builtin.copy:
-        src: /home/dandi/DiplomaProject/CephCluster.yaml
-        dest: /home/dandi/CephCluster.yaml
-        mode: '0644'
-
-    - name: Apply CephCluster manifest (Create Ceph Cluster)
-      ansible.builtin.command: kubectl apply -f /home/dandi/CephCluster.yaml
         dest: /home/dandi/Monitoring.yaml
         mode: '0644'
 
@@ -87,7 +78,18 @@
         -f /home/dandi/Monitoring.yaml
         --timeout 10m
 
-    # ------------------------------------------------
+    # ---- СОЗДАНИЕ ИНИЦИАЛИЗАЦИИ КЛАСТЕРА CEPH ----
+
+    - name: Copy CephCluster manifest to k8s-master
+      ansible.builtin.copy:
+        src: /home/dandi/DiplomaProject/CephCluster.yaml
+        dest: /home/dandi/CephCluster.yaml
+        mode: '0644'
+
+    - name: Apply CephCluster manifest (Create Ceph Cluster)
+      ansible.builtin.command: kubectl apply -f /home/dandi/CephCluster.yaml
+
+    # ---- СБОР МЕТРИК И ПАРОЛЕЙ ----
 
     - name: Get Grafana admin password
       ansible.builtin.shell: kubectl get secret --namespace monitoring kube-prom-stack-grafana -o jsonpath="{.data.admin-password}" | base64 --decode
