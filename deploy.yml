@@ -1,4 +1,16 @@
 ---
+# ПЛЕЙ 1: Ставим lvm2 на абсолютно все ноды (и мастера, и воркеры) с правами root
+- name: Install Prerequisites on All Nodes
+  hosts: all
+  become: true
+  tasks:
+    - name: Install lvm2 (required for Ceph OSD)
+      ansible.builtin.apt:
+        name: lvm2
+        state: present
+        update_cache: yes
+
+# ПЛЕЙ 2: Разворачиваем приложения и мониторинг на k8s-master
 - name: Deploy Nginx, Rook Ceph, and Monitoring Stack
   hosts: masters
   become: false
@@ -34,12 +46,6 @@
         path: /tmp/get_helm.sh
         state: absent
 
-    # ---- ТЕПЕРЬ СТАВИМ КЛИЕНТЫ И РЕПОЗИТОРИИ ДЛЯ ROOK ----
-
-    - name: Install lvm2 on all nodes (required for Ceph OSD)
-      # Используем shell через ansible, чтобы раскатить пакет lvm2 на ВОРКЕРЫ и МАСТЕР
-      ansible.builtin.shell: ansible all -i /home/dandi/hosts.ini -m apt -a "name=lvm2 state=present update_cache=yes" --become
-
     - name: Add Prometheus and Rook Helm repositories
       ansible.builtin.shell: |
         helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
@@ -69,3 +75,5 @@
         content: "{{ grafana_password_raw.stdout }}"
         dest: /home/dandi/grafana_password.txt
         mode: '0600'
+      # Магия: delegate_to заставляет Ansible сохранить файл именно на ansible-master!
+      delegate_to: localhost
