@@ -14,7 +14,7 @@ spec:
   mgr:
     count: 2
   dashboard:
-    enabled: true
+    enabled: false
     ssl: false
   crashCollector:
     disable: false
