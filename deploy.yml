@@ -60,30 +60,34 @@
     - name: Create monitoring namespace (idempotent)
       ansible.builtin.shell: kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -
 
-    # ---- ДЕПЛОЙ НАПРЯМУЮ ЧЕРЕЗ URL РЕПОЗИТОРИЕВ С RETRY ----
+    # ---- СКАЧИВАНИЕ ЧАРТОВ СИЛАМИ ANSIBLE (ОБХОД СЕТЕВОГО СТЕКА GO) ----
+
+    - name: Download Rook Ceph chart package
+      ansible.builtin.get_url:
+        url: https://charts.rook.io/release/rook-ceph-v1.19.5.tgz
+        dest: /tmp/rook-ceph-v1.19.5.tgz
+        mode: '0644'
+
+    - name: Download kube-prometheus-stack chart package
+      ansible.builtin.get_url:
+        url: https://prometheus-community.github.io/helm-charts/kube-prometheus-stack-85.1.1.tgz
+        dest: /tmp/kube-prometheus-stack-85.1.1.tgz
+        mode: '0644'
+
+    # ---- ДЕПЛОЙ ИЗ ЛОКАЛЬНЫХ АРХИВОВ С ТАЙМАУТОМ КЛАСТЕРА ----
 
     - name: Deploy Rook Ceph Operator via Helm
       ansible.builtin.command: >
-        helm upgrade --install rook-ceph rook-ceph
-        --repo https://charts.rook.io/release
+        helm upgrade --install rook-ceph /tmp/rook-ceph-v1.19.5.tgz
         --namespace rook-ceph --create-namespace
         --timeout 10m
-      register: rook_deploy
-      until: rook_deploy.rc == 0
-      retries: 3
-      delay: 15
 
     - name: Deploy kube-prometheus-stack via Helm
       ansible.builtin.command: >
-        helm upgrade --install kube-prom-stack kube-prometheus-stack
-        --repo https://prometheus-community.github.io/helm-charts
+        helm upgrade --install kube-prom-stack /tmp/kube-prometheus-stack-85.1.1.tgz
         --namespace monitoring
         -f /home/dandi/Monitoring.yaml
         --timeout 10m
-      register: prom_deploy
-      until: prom_deploy.rc == 0
-      retries: 3
-      delay: 15
 
     # ------------------------------------------------
 
