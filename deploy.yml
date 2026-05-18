@@ -49,33 +49,17 @@
     - name: Create monitoring namespace (idempotent)
       ansible.builtin.shell: kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -
 
-    # ---- СКАЧИВАНИЕ ЧАРТОВ СИЛАМИ СИСТЕМНОГО CURL НА LOCALHOST ----
-
-    - name: Download Rook Ceph chart via curl on ansible-master (localhost)
-      ansible.builtin.shell: >
-        curl -4 -sSL --connect-timeout 15 --retry 5 --retry-delay 5
-        https://charts.rook.io/release/rook-ceph-v1.19.5.tgz 
-        -o /tmp/rook-ceph-v1.19.5.tgz
-      delegate_to: localhost
-
-    - name: Download kube-prometheus-stack chart via curl on ansible-master (localhost)
-      ansible.builtin.shell: >
-        curl -4 -sSL --connect-timeout 15 --retry 5 --retry-delay 5
-        https://prometheus-community.github.io/helm-charts/kube-prometheus-stack-85.1.1.tgz 
-        -o /tmp/kube-prometheus-stack-85.1.1.tgz
-      delegate_to: localhost
-
-    # ---- ОТПРАВКА НА K8S-MASTER ЧЕРЕЗ SSH ----
+    # ---- ТРАНСПОРТИРОВКА СКАЧАННЫХ ЧАРТОВ ИЗ ДИРЕКТОРИИ ПРОЕКТА ЧЕРЕЗ SSH ----
 
     - name: Copy Rook Ceph chart to k8s-master
       ansible.builtin.copy:
-        src: /tmp/rook-ceph-v1.19.5.tgz
+        src: /home/dandi/DiplomaProject/rook-ceph-v1.19.5.tgz
         dest: /tmp/rook-ceph-v1.19.5.tgz
         mode: '0644'
 
     - name: Copy kube-prometheus-stack chart to k8s-master
       ansible.builtin.copy:
-        src: /tmp/kube-prometheus-stack-85.1.1.tgz
+        src: /home/dandi/DiplomaProject/kube-prometheus-stack-85.1.1.tgz
         dest: /tmp/kube-prometheus-stack-85.1.1.tgz
         mode: '0644'
 
