@@ -1,7 +1,7 @@
 ---
-- name: Deploy Nginx and Monitoring Stack (Prometheus & Grafana)
+- name: Deploy Nginx, Rook Ceph, and Monitoring Stack
   hosts: masters
-  become: false # kubectl работает от пользователя dandi
+  become: false
   tasks:
 
     - name: Copy Nginx manifest to k8s-master
@@ -27,21 +27,32 @@
 
     - name: Install Helm to system
       ansible.builtin.command: /tmp/get_helm.sh
-      become: true # Для записи в /usr/local/bin нужны права root
+      become: true
 
     - name: Remove Helm installer script
       ansible.builtin.file:
         path: /tmp/get_helm.sh
         state: absent
 
-    - name: Add Prometheus Helm repository
-      ansible.builtin.command: helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+    # ---- ТЕПЕРЬ СТАВИМ КЛИЕНТЫ И РЕПОЗИТОРИИ ДЛЯ ROOK ----
 
-    - name: Update Helm repositories
-      ansible.builtin.command: helm repo update
+    - name: Install lvm2 on all nodes (required for Ceph OSD)
+      # Используем shell через ansible, чтобы раскатить пакет lvm2 на ВОРКЕРЫ и МАСТЕР
+      ansible.builtin.shell: ansible all -i /home/dandi/hosts.ini -m apt -a "name=lvm2 state=present update_cache=yes" --become
+
+    - name: Add Prometheus and Rook Helm repositories
+      ansible.builtin.shell: |
+        helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+        helm repo add rook-release https://charts.rook.io/release
+        helm repo update
 
     - name: Create monitoring namespace (idempotent)
       ansible.builtin.shell: kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -
+
+    - name: Deploy Rook Ceph Operator via Helm
+      ansible.builtin.command: >
+        helm upgrade --install rook-ceph rook-release/rook-ceph
+        --namespace rook-ceph --create-namespace
 
     - name: Deploy kube-prometheus-stack via Helm
       ansible.builtin.command: >
