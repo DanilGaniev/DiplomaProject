@@ -1,20 +1,9 @@
 ---
 # ПЛЕЙ 1: Настройка ОС и установка lvm2 на все ноды (мастера и воркеры) с правами root
-- name: Install Prerequisites and Optimize Network on All Nodes
+- name: Install Prerequisites on All Nodes
   hosts: all
   become: true
   tasks:
-    - name: Disable IPv6 via sysctl to avoid Helm/Go network timeouts
-      ansible.posix.sysctl:
-        name: "{{ item }}"
-        value: '1'
-        state: present
-        reload: yes
-      loop:
-        - net.ipv6.conf.all.disable_ipv6
-        - net.ipv6.conf.default.disable_ipv6
-        - net.ipv6.conf.lo.disable_ipv6
-
     - name: Install lvm2 (required for Ceph OSD)
       ansible.builtin.apt:
         name: lvm2
@@ -60,17 +49,31 @@
     - name: Create monitoring namespace (idempotent)
       ansible.builtin.shell: kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -
 
-    # ---- СКАЧИВАНИЕ ЧАРТОВ СИЛАМИ ANSIBLE (ОБХОД СЕТЕВОГО СТЕКА GO) ----
+    # ---- ТРАНСПОРТИРОВКА ЧАРТОВ ЧЕРЕЗ LOCALHOST (ОБХОД ПРОБЛЕМ С MTU) ----
 
-    - name: Download Rook Ceph chart package
+    - name: Download Rook Ceph chart to ansible-master (localhost)
       ansible.builtin.get_url:
         url: https://charts.rook.io/release/rook-ceph-v1.19.5.tgz
         dest: /tmp/rook-ceph-v1.19.5.tgz
         mode: '0644'
+      delegate_to: localhost
 
-    - name: Download kube-prometheus-stack chart package
+    - name: Download kube-prometheus-stack chart to ansible-master (localhost)
       ansible.builtin.get_url:
         url: https://prometheus-community.github.io/helm-charts/kube-prometheus-stack-85.1.1.tgz
+        dest: /tmp/kube-prometheus-stack-85.1.1.tgz
+        mode: '0644'
+      delegate_to: localhost
+
+    - name: Copy Rook Ceph chart to k8s-master
+      ansible.builtin.copy:
+        src: /tmp/rook-ceph-v1.19.5.tgz
+        dest: /tmp/rook-ceph-v1.19.5.tgz
+        mode: '0644'
+
+    - name: Copy kube-prometheus-stack chart to k8s-master
+      ansible.builtin.copy:
+        src: /tmp/kube-prometheus-stack-85.1.1.tgz
         dest: /tmp/kube-prometheus-stack-85.1.1.tgz
         mode: '0644'
 
