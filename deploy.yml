@@ -1,5 +1,5 @@
 ---
-# ПЛЕЙ 1: Ставим lvm2 на абсолютно все ноды (и мастера, и воркеры) с правами root
+# ПЛЕЙ 1: Ставим lvm2 на все ноды (мастера и воркеры) с правами root
 - name: Install Prerequisites on All Nodes
   hosts: all
   become: true
@@ -46,25 +46,25 @@
         path: /tmp/get_helm.sh
         state: absent
 
-    - name: Add Prometheus and Rook Helm repositories
-      ansible.builtin.shell: |
-        helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
-        helm repo add rook-release https://charts.rook.io/release
-        helm repo update
-
     - name: Create monitoring namespace (idempotent)
       ansible.builtin.shell: kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -
 
+    # ---- ДЕПЛОЙ НАПРЯМУЮ ЧЕРЕЗ URL РЕПОЗИТОРИЕВ ----
+
     - name: Deploy Rook Ceph Operator via Helm
       ansible.builtin.command: >
-        helm upgrade --install rook-ceph rook-release/rook-ceph
+        helm upgrade --install rook-ceph rook-ceph
+        --repo https://charts.rook.io/release
         --namespace rook-ceph --create-namespace
 
     - name: Deploy kube-prometheus-stack via Helm
       ansible.builtin.command: >
-        helm upgrade --install kube-prom-stack prometheus-community/kube-prometheus-stack
+        helm upgrade --install kube-prom-stack kube-prometheus-stack
+        --repo https://prometheus-community.github.io/helm-charts
         --namespace monitoring
         -f /home/dandi/Monitoring.yaml
+
+    # ------------------------------------------------
 
     - name: Get Grafana admin password
       ansible.builtin.shell: kubectl get secret --namespace monitoring kube-prom-stack-grafana -o jsonpath="{.data.admin-password}" | base64 --decode
@@ -75,5 +75,4 @@
         content: "{{ grafana_password_raw.stdout }}"
         dest: /home/dandi/grafana_password.txt
         mode: '0600'
-      # Магия: delegate_to заставляет Ansible сохранить файл именно на ansible-master!
       delegate_to: localhost
