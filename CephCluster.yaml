@@ -1,0 +1,30 @@
+apiVersion: ceph.rook.io/v1
+kind: CephCluster
+metadata:
+  name: rook-ceph
+  namespace: rook-ceph
+spec:
+  cephVersion:
+    image: quay.io/ceph/ceph:v19.2.0 # Актуальная стабильная версия Ceph Octopus/Squid
+    allowUnsupported: false
+  dataDirHostPath: /var/lib/rook # Здесь будут лежать логи и метаданные оператора на хостах
+  mon:
+    count: 3
+    allowMultiplePerNode: true # Разрешаем, если у нас всего 3 ноды в кластере
+  mgr:
+    count: 2
+  dashboard:
+    enabled: true
+    ssl: false
+  crashCollector:
+    disable: false
+  storage:
+    useAllNodes: false
+    useAllDevices: false
+    nodes:
+      - name: "k8s-worker-1"
+        devices:
+          - name: "vdb" # В Linux диски virtio1 обычно маппятся как /dev/vdb (второй после vda)
+      - name: "k8s-worker-2"
+        devices:
+          - name: "vdb"

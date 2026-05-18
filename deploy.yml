@@ -28,6 +28,15 @@
     - name: Copy Monitoring values to k8s-master
       ansible.builtin.copy:
         src: /home/dandi/DiplomaProject/Monitoring.yaml
+
+    - name: Copy CephCluster manifest to k8s-master
+      ansible.builtin.copy:
+        src: /home/dandi/DiplomaProject/CephCluster.yaml
+        dest: /home/dandi/CephCluster.yaml
+        mode: '0644'
+
+    - name: Apply CephCluster manifest (Create Ceph Cluster)
+      ansible.builtin.command: kubectl apply -f /home/dandi/CephCluster.yaml
         dest: /home/dandi/Monitoring.yaml
         mode: '0644'
 
