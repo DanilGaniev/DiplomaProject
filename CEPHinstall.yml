@@ -16,8 +16,8 @@
       with_items:
         - CephCluster.yaml
         - ceph-pool.yaml
-        - storage-class.yaml
-        - test-storage.yaml
+        - storage.yaml
+        - 1GB-storage.yaml
 
     - name: Apply Rook CRDs, Common resources and Operator
       shell: |
