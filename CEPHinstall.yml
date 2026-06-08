@@ -1,0 +1,57 @@
+---
+- name: Automate Rook-Ceph Infrastructure Deployment
+  hosts: localhost
+  connection: local
+  tasks:
+    - name: Apply Rook CRDs, Common resources and Operator
+      shell: |
+        kubectl apply -f https://raw.githubusercontent.com/rook/rook/v1.16.2/deploy/examples/crds.yaml
+        kubectl apply -f https://raw.githubusercontent.com/rook/rook/v1.16.2/deploy/examples/common.yaml
+        kubectl apply -f https://raw.githubusercontent.com/rook/rook/v1.16.2/deploy/examples/operator.yaml
+
+    - name: Wait for Rook Ceph Operator to be Running
+      shell: kubectl -n rook-ceph rollout status deployment/rook-ceph-operator --timeout=5m
+
+    - name: Deploy Custom CephCluster configuration
+      shell: kubectl apply -f CephCluster.yaml
+
+    - name: Wait for CephCluster to reach Ready Phase (can take 3-5 minutes)
+      shell: kubectl -n rook-ceph get cephcluster rook-ceph -o jsonpath='{.status.phase}'
+      register: cluster_phase
+      until: cluster_phase.stdout == "Ready"
+      retries: 40
+      delay: 15
+
+    - name: Deploy Storage Pool and StorageClass
+      shell: |
+        kubectl apply -f ceph-pool.yaml
+        kubectl apply -f storage.yaml
+
+    - name: Deploy Test Pod and Test PVC
+      shell: kubectl apply -f 1GB-storage.yaml
+
+    - name: Wait for test PVC to become Bound
+      shell: kubectl get pvc ceph-test-pvc -o jsonpath='{.status.phase}'
+      register: pvc_status
+      until: pvc_status.stdout == "Bound"
+      retries: 15
+      delay: 10
+
+    - name: Wait for Test Pod to become Running
+      shell: kubectl get pod ceph-test-pod -o jsonpath='{.status.phase}'
+      register: pod_status
+      until: pod_status.stdout == "Running"
+      retries: 15
+      delay: 10
+
+    - name: Display Final Verification Metrics
+      shell: |
+        echo "--- PVC STATUS ---"
+        kubectl get pvc ceph-test-pvc
+        echo "--- POD STATUS ---"
+        kubectl get pod ceph-test-pod
+      register: execution_summary
+
+    - name: Print summary to stdout
+      debug:
+        msg: "{{ execution_summary.stdout_lines }}"

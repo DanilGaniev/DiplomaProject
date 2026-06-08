@@ -7,4 +7,4 @@ spec:
   failureDomain: host
   replicated:
     size: 2
-    requireSafeReplicaSize: false # Обязательный флаг для работы репликации меньше 3
+    requireSafeReplicaSize: false # Разрешает пулу работать с репликацией < 3

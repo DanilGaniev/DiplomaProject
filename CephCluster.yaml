@@ -5,12 +5,12 @@ metadata:
   namespace: rook-ceph
 spec:
   cephVersion:
-    image: quay.io/ceph/ceph:v19.2.0 # Актуальная стабильная версия Ceph Octopus/Squid
+    image: quay.io/ceph/ceph:v19.2.0
     allowUnsupported: false
-  dataDirHostPath: /var/lib/rook # Здесь будут лежать логи и метаданные оператора на хостах
+  dataDirHostPath: /var/lib/rook
   mon:
     count: 3
-    allowMultiplePerNode: true # Разрешаем, если у нас всего 3 ноды в кластере
+    allowMultiplePerNode: true
   mgr:
     count: 2
   dashboard:
@@ -18,13 +18,18 @@ spec:
     ssl: false
   crashCollector:
     disable: false
+  priorityClassNames:
+    all: system-cluster-critical
   storage:
     useAllNodes: false
     useAllDevices: false
+    config:
+      osd_pool_default_size: "2"     # Автоматически выставляет 2 реплики
+      osd_pool_default_min_size: "1" # Позволяет писать при одной живой ноде
     nodes:
       - name: "k8s-worker-1"
         devices:
-          - name: "vdb" # В Linux диски virtio1 обычно маппятся как /dev/vdb (второй после vda)
+          - name: "vdb"
       - name: "k8s-worker-2"
         devices:
           - name: "vdb"
