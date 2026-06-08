@@ -1,8 +1,24 @@
 ---
 - name: Automate Rook-Ceph Infrastructure Deployment
-  hosts: localhost
-  connection: local
+  hosts: masters # Выполняем прямо на k8s-master, где kubectl уже работает
   tasks:
+    - name: Create temporary directory for Ceph manifests on K8s Master
+      file:
+        path: /home/dandi/ceph-manifests
+        state: directory
+        mode: '0755'
+
+    - name: Copy manifests from Ansible-Master to K8s Master
+      copy:
+        src: "{{ item }}"
+        dest: "/home/dandi/ceph-manifests/{{ item }}"
+        mode: '0644'
+      with_items:
+        - CephCluster.yaml
+        - ceph-pool.yaml
+        - storage-class.yaml
+        - test-storage.yaml
+
     - name: Apply Rook CRDs, Common resources and Operator
       shell: |
         kubectl apply -f https://raw.githubusercontent.com/rook/rook/v1.16.2/deploy/examples/crds.yaml
@@ -13,7 +29,7 @@
       shell: kubectl -n rook-ceph rollout status deployment/rook-ceph-operator --timeout=5m
 
     - name: Deploy Custom CephCluster configuration
-      shell: kubectl apply -f CephCluster.yaml
+      shell: kubectl apply -f /home/dandi/ceph-manifests/CephCluster.yaml
 
     - name: Wait for CephCluster to reach Ready Phase (can take 3-5 minutes)
       shell: kubectl -n rook-ceph get cephcluster rook-ceph -o jsonpath='{.status.phase}'
@@ -24,11 +40,11 @@
 
     - name: Deploy Storage Pool and StorageClass
       shell: |
-        kubectl apply -f ceph-pool.yaml
-        kubectl apply -f storage.yaml
+        kubectl apply -f /home/dandi/ceph-manifests/ceph-pool.yaml
+        kubectl apply -f /home/dandi/ceph-manifests/storage.yaml
 
     - name: Deploy Test Pod and Test PVC
-      shell: kubectl apply -f 1GB-storage.yaml
+      shell: kubectl apply -f /home/dandi/ceph-manifests/1GB-storage.yaml
 
     - name: Wait for test PVC to become Bound
       shell: kubectl get pvc ceph-test-pvc -o jsonpath='{.status.phase}'
